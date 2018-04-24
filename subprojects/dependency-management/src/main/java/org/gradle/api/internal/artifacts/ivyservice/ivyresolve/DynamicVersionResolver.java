@@ -29,6 +29,9 @@ import org.gradle.api.internal.artifacts.dependencies.DefaultImmutableVersionCon
 import org.gradle.api.internal.artifacts.ivyservice.ivyresolve.strategy.Version;
 import org.gradle.api.internal.artifacts.ivyservice.ivyresolve.strategy.VersionParser;
 import org.gradle.api.internal.artifacts.ivyservice.ivyresolve.strategy.VersionSelector;
+import org.gradle.api.internal.attributes.AttributeContainerInternal;
+import org.gradle.api.internal.attributes.ImmutableAttributes;
+import org.gradle.api.internal.attributes.ImmutableAttributesFactory;
 import org.gradle.internal.component.external.model.DefaultModuleComponentIdentifier;
 import org.gradle.internal.component.external.model.ModuleComponentResolveMetadata;
 import org.gradle.internal.component.external.model.ModuleDependencyMetadata;
@@ -66,10 +69,12 @@ public class DynamicVersionResolver {
     private final List<String> repositoryNames = new ArrayList<String>();
     private final VersionedComponentChooser versionedComponentChooser;
     private final Transformer<ModuleComponentResolveMetadata, RepositoryChainModuleResolution> metaDataFactory;
+    private final ImmutableAttributesFactory attributesFactory;
 
-    public DynamicVersionResolver(VersionedComponentChooser versionedComponentChooser, Transformer<ModuleComponentResolveMetadata, RepositoryChainModuleResolution> metaDataFactory) {
+    public DynamicVersionResolver(VersionedComponentChooser versionedComponentChooser, Transformer<ModuleComponentResolveMetadata, RepositoryChainModuleResolution> metaDataFactory, ImmutableAttributesFactory attributesFactory) {
         this.versionedComponentChooser = versionedComponentChooser;
         this.metaDataFactory = metaDataFactory;
+        this.attributesFactory = attributesFactory;
     }
 
     public void add(ModuleComponentRepository repository) {
@@ -84,7 +89,7 @@ public class DynamicVersionResolver {
 
         List<RepositoryResolveState> resolveStates = Lists.newArrayListWithCapacity(repositories.size());
         for (ModuleComponentRepository repository : repositories) {
-            resolveStates.add(new RepositoryResolveState(versionedComponentChooser, dependency, repository, versionSelector, rejectedVersionSelector, consumerAttributes));
+            resolveStates.add(new RepositoryResolveState(versionedComponentChooser, dependency, repository, versionSelector, rejectedVersionSelector, consumerAttributes, attributesFactory));
         }
 
         final RepositoryChainModuleResolution latestResolved = findLatestModule(resolveStates, errors);
@@ -221,19 +226,25 @@ public class DynamicVersionResolver {
         private final ModuleDependencyMetadata dependency;
         private final VersionSelector versionSelector;
         private final VersionSelector rejectedVersionSelector;
-        private final AttributeContainer consumerAttributes;
+        private final ImmutableAttributes consumerAttributes;
         private ModuleComponentIdentifier firstRejected = null;
 
 
-        public RepositoryResolveState(VersionedComponentChooser versionedComponentChooser, ModuleDependencyMetadata dependency, ModuleComponentRepository repository, VersionSelector versionSelector, VersionSelector rejectedVersionSelector, AttributeContainer consumerAttributes) {
+        public RepositoryResolveState(VersionedComponentChooser versionedComponentChooser, ModuleDependencyMetadata dependency, ModuleComponentRepository repository, VersionSelector versionSelector, VersionSelector rejectedVersionSelector, AttributeContainer consumerAttributes, ImmutableAttributesFactory attributesFactory) {
             this.versionedComponentChooser = versionedComponentChooser;
             this.dependency = dependency;
             this.versionSelector = versionSelector;
             this.rejectedVersionSelector = rejectedVersionSelector;
             this.repository = repository;
             this.attemptCollector = new AttemptCollector();
-            this.consumerAttributes = consumerAttributes;
+            this.consumerAttributes = buildAttributes(consumerAttributes, attributesFactory);
             versionListingResult = new VersionListResult(dependency, repository);
+        }
+
+        private ImmutableAttributes buildAttributes(AttributeContainer consumerAttributes, ImmutableAttributesFactory attributesFactory) {
+            ImmutableAttributes immutableConsumerAttributes = ((AttributeContainerInternal) consumerAttributes).asImmutable();
+            ImmutableAttributes dependencyAttributes = ((AttributeContainerInternal) dependency.getSelector().getAttributes()).asImmutable();
+            return attributesFactory.concat(immutableConsumerAttributes, dependencyAttributes);
         }
 
         public boolean canMakeFurtherAttempts() {

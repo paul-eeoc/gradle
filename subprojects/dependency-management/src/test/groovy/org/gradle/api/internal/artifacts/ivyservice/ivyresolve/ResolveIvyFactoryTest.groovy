@@ -41,6 +41,7 @@ import org.gradle.internal.resource.local.FileStore
 import org.gradle.internal.resource.local.LocallyAvailableResourceFinder
 import org.gradle.internal.resource.transfer.CacheAwareExternalResourceAccessor
 import org.gradle.util.BuildCommencedTimeProvider
+import org.gradle.util.TestUtil
 import spock.lang.Specification
 import spock.lang.Subject
 
@@ -80,7 +81,7 @@ class ResolveIvyFactoryTest extends Specification {
 
     def "returns an empty resolver when no repositories are configured" () {
         when:
-        def resolver = resolveIvyFactory.create(Stub(ResolutionStrategyInternal), Collections.emptyList(), Stub(ComponentMetadataProcessor), ImmutableAttributes.EMPTY, Stub(AttributesSchemaInternal))
+        def resolver = resolveIvyFactory.create(Stub(ResolutionStrategyInternal), Collections.emptyList(), Stub(ComponentMetadataProcessor), ImmutableAttributes.EMPTY, Stub(AttributesSchemaInternal), TestUtil.attributesFactory())
 
         then:
         resolver instanceof NoRepositoriesResolver
@@ -99,7 +100,7 @@ class ResolveIvyFactoryTest extends Specification {
         })
 
         when:
-        def resolver = resolveIvyFactory.create(resolutionStrategy, repositories, Stub(ComponentMetadataProcessor), ImmutableAttributes.EMPTY, Stub(AttributesSchemaInternal))
+        def resolver = resolveIvyFactory.create(resolutionStrategy, repositories, Stub(ComponentMetadataProcessor), ImmutableAttributes.EMPTY, Stub(AttributesSchemaInternal), TestUtil.attributesFactory())
 
         then:
         assert resolver instanceof UserResolverChain
