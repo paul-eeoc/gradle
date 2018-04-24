@@ -21,6 +21,8 @@ import org.gradle.api.Incubating;
 import org.gradle.api.XmlProvider;
 import org.gradle.internal.HasInternalProtocol;
 
+import java.util.List;
+
 /**
  * The POM for a Maven publication.
  *
@@ -73,5 +75,53 @@ public interface MavenPom {
      */
     void setPackaging(String packaging);
 
+    String getDescription();
 
+    void setDescription(String description);
+
+    String getUrl();
+
+    void setUrl(String url);
+
+    String getInceptionYear();
+
+    void setInceptionYear(int inceptionYear);
+
+    void setInceptionYear(String inceptionYear);
+
+    void licenses(Action<? super MavenPomLicenseContainer> action);
+
+    List<MavenPomLicense> getLicenses();
+
+    void organization(Action<? super MavenPomOrganization> action);
+
+    MavenPomOrganization getOrganization();
+
+    void developers(Action<? super MavenPomDeveloperContainer> action);
+
+    List<MavenPomDeveloper> getDevelopers();
+
+    void contributors(Action<? super MavenPomContributorContainer> action);
+
+    List<MavenPomContributor> getContributors();
+
+    void scm(Action<? super MavenPomScm> action);
+
+    MavenPomScm getScm();
+
+    void issueManagement(Action<? super MavenPomIssueManagement> action);
+
+    MavenPomIssueManagement getIssueManagement();
+
+    void ciManagement(Action<? super MavenPomCiManagement> action);
+
+    MavenPomCiManagement getCiManagement();
+
+    void distributionManagement(Action<? super MavenPomDistributionManagement> action);
+
+    MavenPomDistributionManagement getDistributionManagement();
+
+    void mailingLists(Action<? super MavenPomMailingListContainer> action);
+
+    List<MavenPomMailingList> getMailingLists();
 }
