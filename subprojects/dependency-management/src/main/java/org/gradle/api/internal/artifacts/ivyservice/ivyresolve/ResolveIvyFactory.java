@@ -16,6 +16,8 @@
 package org.gradle.api.internal.artifacts.ivyservice.ivyresolve;
 
 import org.gradle.api.artifacts.component.ComponentIdentifier;
+import org.gradle.api.attributes.AttributeContainer;
+import org.gradle.api.attributes.AttributesSchema;
 import org.gradle.api.internal.artifacts.ComponentMetadataProcessor;
 import org.gradle.api.internal.artifacts.ImmutableModuleIdentifierFactory;
 import org.gradle.api.internal.artifacts.ResolvedVersionConstraint;
@@ -69,7 +71,9 @@ public class ResolveIvyFactory {
 
     public ComponentResolvers create(ResolutionStrategyInternal resolutionStrategy,
                                      Collection<? extends ResolutionAwareRepository> repositories,
-                                     ComponentMetadataProcessor metadataProcessor) {
+                                     ComponentMetadataProcessor metadataProcessor,
+                                     AttributeContainer consumerAttributes,
+                                     AttributesSchema attributesSchema) {
         if (repositories.isEmpty()) {
             return new NoRepositoriesResolver();
         }
@@ -77,8 +81,8 @@ public class ResolveIvyFactory {
         CachePolicy cachePolicy = resolutionStrategy.getCachePolicy();
         startParameterResolutionOverride.applyToCachePolicy(cachePolicy);
 
-        UserResolverChain moduleResolver = new UserResolverChain(versionSelectorScheme, versionComparator, resolutionStrategy.getComponentSelection(), moduleIdentifierFactory);
-        ParentModuleLookupResolver parentModuleResolver = new ParentModuleLookupResolver(versionSelectorScheme, versionComparator, moduleIdentifierFactory);
+        UserResolverChain moduleResolver = new UserResolverChain(versionSelectorScheme, versionComparator, resolutionStrategy.getComponentSelection(), moduleIdentifierFactory, consumerAttributes, attributesSchema);
+        ParentModuleLookupResolver parentModuleResolver = new ParentModuleLookupResolver(versionSelectorScheme, versionComparator, moduleIdentifierFactory, consumerAttributes, attributesSchema);
 
         for (ResolutionAwareRepository repository : repositories) {
             ConfiguredModuleComponentRepository baseRepository = repository.createResolver();
@@ -117,8 +121,8 @@ public class ResolveIvyFactory {
     private static class ParentModuleLookupResolver implements ComponentResolvers, DependencyToComponentIdResolver, ComponentMetaDataResolver, ArtifactResolver {
         private final UserResolverChain delegate;
 
-        public ParentModuleLookupResolver(VersionSelectorScheme versionSelectorScheme, VersionComparator versionComparator, ImmutableModuleIdentifierFactory moduleIdentifierFactory) {
-            this.delegate = new UserResolverChain(versionSelectorScheme, versionComparator, new DefaultComponentSelectionRules(moduleIdentifierFactory), moduleIdentifierFactory);
+        public ParentModuleLookupResolver(VersionSelectorScheme versionSelectorScheme, VersionComparator versionComparator, ImmutableModuleIdentifierFactory moduleIdentifierFactory, AttributeContainer consumerAttributes, AttributesSchema attributesSchema) {
+            this.delegate = new UserResolverChain(versionSelectorScheme, versionComparator, new DefaultComponentSelectionRules(moduleIdentifierFactory), moduleIdentifierFactory, consumerAttributes, attributesSchema);
         }
 
         public void add(ModuleComponentRepository moduleComponentRepository) {

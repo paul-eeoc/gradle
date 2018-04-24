@@ -17,6 +17,8 @@
 package org.gradle.api.internal.artifacts.ivyservice.ivyresolve;
 
 import org.gradle.api.Transformer;
+import org.gradle.api.attributes.AttributeContainer;
+import org.gradle.api.attributes.AttributesSchema;
 import org.gradle.api.internal.artifacts.ComponentSelectionRulesInternal;
 import org.gradle.api.internal.artifacts.ImmutableModuleIdentifierFactory;
 import org.gradle.api.internal.artifacts.ivyservice.ivyresolve.strategy.VersionComparator;
@@ -36,11 +38,13 @@ public class UserResolverChain implements ComponentResolvers {
     public UserResolverChain(VersionSelectorScheme versionSelectorScheme,
                              VersionComparator versionComparator,
                              ComponentSelectionRulesInternal componentSelectionRules,
-                             ImmutableModuleIdentifierFactory moduleIdentifierFactory) {
+                             ImmutableModuleIdentifierFactory moduleIdentifierFactory,
+                             AttributeContainer consumerAttributes,
+                             AttributesSchema attributesSchema) {
         this.componentSelectionRules = componentSelectionRules;
-        VersionedComponentChooser componentChooser = new DefaultVersionedComponentChooser(versionComparator, componentSelectionRules);
+        VersionedComponentChooser componentChooser = new DefaultVersionedComponentChooser(versionComparator, componentSelectionRules, attributesSchema);
         ModuleTransformer metaDataFactory = new ModuleTransformer();
-        componentIdResolver = new RepositoryChainDependencyToComponentIdResolver(componentChooser, metaDataFactory, moduleIdentifierFactory, versionSelectorScheme);
+        componentIdResolver = new RepositoryChainDependencyToComponentIdResolver(componentChooser, metaDataFactory, moduleIdentifierFactory, versionSelectorScheme, consumerAttributes);
         componentResolver = new RepositoryChainComponentMetaDataResolver(componentChooser, metaDataFactory);
         artifactResolver = new RepositoryChainArtifactResolver();
     }
