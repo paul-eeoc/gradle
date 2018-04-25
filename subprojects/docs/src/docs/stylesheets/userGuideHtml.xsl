@@ -74,6 +74,7 @@
                         <h3 id="getting-started">Getting Started</h3>
                         <ul>
                             <li><a href="/userguide/installation.html">Installing Gradle</a></li>
+                            <li><a href="/userguide/gradle_dsls.html">Gradle DSLs</a></li>
                             <li><a href="https://guides.gradle.org/creating-new-gradle-builds/">Creating New Gradle Builds</a></li>
                             <li><a href="https://guides.gradle.org/creating-build-scans/">Creating Build Scans</a></li>
                             <li><a href="https://guides.gradle.org/migrating-from-maven/">Migrating From Maven</a></li>
