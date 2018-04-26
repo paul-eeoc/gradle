@@ -28,7 +28,7 @@ import org.gradle.api.internal.project.taskfactory.ITaskFactory
 import org.gradle.api.tasks.TaskDependency
 import org.gradle.initialization.ProjectAccessListener
 import org.gradle.internal.reflect.DirectInstantiator
-import org.gradle.model.internal.registry.DefaultModelRegistry
+import org.gradle.model.internal.registry.ModelRegistry
 import spock.lang.Specification
 
 import static java.util.Collections.singletonMap
@@ -36,10 +36,8 @@ import static java.util.Collections.singletonMap
 class DefaultTaskContainerTest extends Specification {
 
     private taskFactory = Mock(ITaskFactory)
-    def modelRegistry = new DefaultModelRegistry(null, null)
-    private project = Mock(ProjectInternal, name: "<project>") {
-        getModelRegistry() >> modelRegistry
-    }
+    def modelRegistry = Mock(ModelRegistry)
+    private project = Mock(ProjectInternal, name: "<project>")
     private taskCount = 1;
     private accessListener = Mock(ProjectAccessListener)
     private container = new DefaultTaskContainerFactory(modelRegistry, DirectInstantiator.INSTANCE, taskFactory, project, accessListener, new TaskStatistics()).create()
@@ -358,26 +356,6 @@ class DefaultTaskContainerTest extends Specification {
         container.resolveTask(":task") == task
     }
 
-    void "realizes task graph"() {
-        given:
-        def aTask = addTask("a")
-        def bTask = addTask("b")
-        aTask.dependsOn(bTask)
-
-        addPlaceholderTask("c")
-        def cTask = this.task("c", DefaultTask)
-
-        when:
-        container.realize()
-
-        then:
-        1 * taskFactory.create("c", DefaultTask) >> { cTask }
-        0 * aTask.getTaskDependencies()
-        0 * bTask.getTaskDependencies()
-        0 * cTask.getTaskDependencies()
-        container.getByName("c") == cTask
-    }
-
     void "invokes rule at most once when locating a task"() {
         def rule = Mock(Rule)
 
@@ -570,48 +548,6 @@ class DefaultTaskContainerTest extends Specification {
         provider.get() == task
     }
 
-    void "can add task via placeholder action"() {
-        when:
-        addPlaceholderTask("task")
-        1 * taskFactory.create("task", DefaultTask) >> { task(it[0], it[1]) }
-
-        then:
-        container.getByName("task") != null
-    }
-
-    void "placeholder is ignored when task already exists"() {
-        given:
-        Task task = addTask("task")
-        def placeholderAction = addPlaceholderTask("task")
-
-        when:
-        container.getByName("task") == task
-
-        then:
-        0 * placeholderAction.execute(_)
-    }
-
-    void "placeholder is ignored when task later defined"() {
-        given:
-        def placeholderAction = addPlaceholderTask("task")
-        Task task = addTask("task")
-
-        when:
-        container.getByName("task") == task
-
-        then:
-        0 * placeholderAction.execute(_)
-    }
-
-    void "getNames contains task and placeholder action names"() {
-        when:
-        addTask("task1")
-        def placeholderAction = addPlaceholderTask("task2")
-        0 * placeholderAction.execute(_)
-        then:
-        container.names == ['task1', 'task2'] as SortedSet
-    }
-
     void "maybeCreate creates new task"() {
         given:
         def task = task("task")
@@ -675,12 +611,6 @@ class DefaultTaskContainerTest extends Specification {
             getName() >> name
             getTaskDependency() >> Mock(TaskDependency)
         }
-    }
-
-    private Action addPlaceholderTask(String placeholderName) {
-        def action = Mock(Action)
-        container.addPlaceholderAction(placeholderName, DefaultTask, action)
-        action
     }
 
     private Task addTask(String name) {

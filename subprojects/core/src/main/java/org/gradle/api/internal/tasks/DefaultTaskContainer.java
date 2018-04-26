@@ -18,7 +18,6 @@ package org.gradle.api.internal.tasks;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import groovy.lang.Closure;
 import org.apache.commons.lang.StringUtils;
 import org.gradle.api.Action;
@@ -43,14 +42,10 @@ import org.gradle.internal.Cast;
 import org.gradle.internal.Transformers;
 import org.gradle.internal.metaobject.DynamicObject;
 import org.gradle.internal.reflect.Instantiator;
-import org.gradle.model.internal.core.ModelActionRole;
 import org.gradle.model.internal.core.ModelNode;
 import org.gradle.model.internal.core.ModelPath;
-import org.gradle.model.internal.core.ModelRegistrations;
 import org.gradle.model.internal.core.MutableModelNode;
 import org.gradle.model.internal.core.NamedEntityInstantiator;
-import org.gradle.model.internal.core.UnmanagedModelProjection;
-import org.gradle.model.internal.core.rule.describe.SimpleModelRuleDescriptor;
 import org.gradle.model.internal.type.ModelType;
 import org.gradle.util.ConfigureUtil;
 import org.gradle.util.GUtil;
@@ -60,8 +55,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.SortedSet;
-import java.util.TreeSet;
 
 @NonNullApi
 public class DefaultTaskContainer extends DefaultTaskCollection<Task> implements TaskContainerInternal {
@@ -75,18 +68,17 @@ public class DefaultTaskContainer extends DefaultTaskCollection<Task> implements
         Task.TASK_NAME, Task.TASK_TYPE
     );
 
-    private final MutableModelNode modelNode;
     private final ITaskFactory taskFactory;
     private final ProjectAccessListener projectAccessListener;
-    private final Set<String> placeholders = Sets.newHashSet();
     private final Object lock = new Object();
 
     private final TaskStatistics statistics;
     private final boolean eagerlyCreateLazyTasks;
 
-    public DefaultTaskContainer(MutableModelNode modelNode, ProjectInternal project, Instantiator instantiator, ITaskFactory taskFactory, ProjectAccessListener projectAccessListener, TaskStatistics statistics) {
+    private MutableModelNode modelNode;
+
+    public DefaultTaskContainer(ProjectInternal project, Instantiator instantiator, ITaskFactory taskFactory, ProjectAccessListener projectAccessListener, TaskStatistics statistics) {
         super(Task.class, instantiator, project);
-        this.modelNode = modelNode;
         this.taskFactory = taskFactory;
         this.projectAccessListener = projectAccessListener;
         this.statistics = statistics;
@@ -181,10 +173,6 @@ public class DefaultTaskContainer extends DefaultTaskCollection<Task> implements
 
     private <T extends Task> T addTask(T task, boolean replaceExisting) {
         String name = task.getName();
-
-        if (placeholders.remove(name)) {
-            modelNode.removeLink(name);
-        }
 
         if (replaceExisting) {
             Task existing = findByNameWithoutRules(name);
@@ -355,31 +343,24 @@ public class DefaultTaskContainer extends DefaultTaskCollection<Task> implements
         return getElementsAsDynamicObject();
     }
 
-    @Override
-    public SortedSet<String> getNames() {
-        SortedSet<String> names = super.getNames();
-        if (placeholders.isEmpty()) {
-            return names;
-        }
-        TreeSet<String> allNames = new TreeSet<String>(names);
-        allNames.addAll(placeholders);
-        return allNames;
-    }
-
     public void realize() {
-        project.getModelRegistry().realizeNode(modelNode.getPath());
+        if (modelNode != null) {
+            project.getModelRegistry().realizeNode(modelNode.getPath());
+        }
     }
 
     @Override
     public void discoverTasks() {
         project.fireDeferredConfiguration();
-        project.getModelRegistry().atStateOrLater(modelNode.getPath(), ModelNode.State.SelfClosed);
+        if (modelNode != null) {
+            project.getModelRegistry().atStateOrLater(modelNode.getPath(), ModelNode.State.SelfClosed);
+        }
     }
 
     @Override
     public void prepareForExecution(Task task) {
         assert task.getProject() == project;
-        if (modelNode.hasLink(task.getName())) {
+        if (modelNode != null && modelNode.hasLink(task.getName())) {
             realizeTask(MODEL_PATH.child(task.getName()), ModelNode.State.GraphClosed);
         }
     }
@@ -388,7 +369,7 @@ public class DefaultTaskContainer extends DefaultTaskCollection<Task> implements
      * @return true if this method _may_ have done some work.
      */
     private boolean maybeCreateTasks(String name) {
-        if (modelNode.hasLink(name)) {
+        if (modelNode != null && modelNode.hasLink(name)) {
             realizeTask(MODEL_PATH.child(name), ModelNode.State.Initialized);
             return true;
         }
@@ -403,29 +384,11 @@ public class DefaultTaskContainer extends DefaultTaskCollection<Task> implements
         if (!maybeCreateTasks(name)) {
             return null;
         }
-        placeholders.remove(name);
         return super.findByNameWithoutRules(name);
     }
 
     private Task realizeTask(ModelPath taskPath, ModelNode.State minState) {
         return project.getModelRegistry().atStateOrLater(taskPath, ModelType.of(Task.class), minState);
-    }
-
-    public <T extends Task> void addPlaceholderAction(final String placeholderName, final Class<T> taskType, final Action<? super T> configure) {
-        if (!modelNode.hasLink(placeholderName)) {
-            final ModelType<T> taskModelType = ModelType.of(taskType);
-            ModelPath path = MODEL_PATH.child(placeholderName);
-            modelNode.addLink(
-                ModelRegistrations.of(path)
-                    .action(ModelActionRole.Create, new TaskCreator<T>(placeholderName, taskType, configure, taskModelType))
-                    .withProjection(new UnmanagedModelProjection<T>(taskModelType))
-                    .descriptor(new SimpleModelRuleDescriptor("tasks.addPlaceholderAction(" + placeholderName + ")"))
-                    .build()
-            );
-        }
-        if (findByNameWithoutRules(placeholderName) == null) {
-            placeholders.add(placeholderName);
-        }
     }
 
     public <U extends Task> NamedDomainObjectContainer<U> containerWithType(Class<U> type) {
@@ -436,27 +399,8 @@ public class DefaultTaskContainer extends DefaultTaskCollection<Task> implements
         return Collections.singleton(getType());
     }
 
-    private static class TaskCreator<T extends Task> implements Action<MutableModelNode> {
-        private final String placeholderName;
-        private final Class<T> taskType;
-        private final Action<? super T> configure;
-        private final ModelType<T> taskModelType;
-
-        TaskCreator(String placeholderName, Class<T> taskType, Action<? super T> configure, ModelType<T> taskModelType) {
-            this.placeholderName = placeholderName;
-            this.taskType = taskType;
-            this.configure = configure;
-            this.taskModelType = taskModelType;
-        }
-
-        @Override
-        public void execute(final MutableModelNode mutableModelNode) {
-            DefaultTaskContainer taskContainer = mutableModelNode.getParent().getPrivateData(ModelType.of(DefaultTaskContainer.class));
-            T task = taskContainer.taskFactory.create(placeholderName, taskType);
-            configure.execute(task);
-            taskContainer.add(task);
-            mutableModelNode.setPrivateData(taskModelType, task);
-        }
+    public void setModelNode(MutableModelNode modelNode) {
+        this.modelNode = modelNode;
     }
 
     @Override

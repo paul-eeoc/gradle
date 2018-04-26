@@ -102,13 +102,13 @@ public class TaskConfiguration {
 
     public static void addInitPlaceholder(final ProjectInternal projectInternal) {
         if (projectInternal.getParent() == null) {
-            projectInternal.getTasks().addPlaceholderAction("init", InitBuild.class, new InitBuildAction());
+            projectInternal.getTasks().createLater("init", InitBuild.class, new InitBuildAction());
         }
     }
 
     public static void addWrapperPlaceholder(ProjectInternal projectInternal) {
         if (projectInternal.getParent() == null) {
-            projectInternal.getTasks().addPlaceholderAction("wrapper", Wrapper.class, new WrapperAction());
+            projectInternal.getTasks().createLater("wrapper", Wrapper.class, new WrapperAction());
         }
     }
 

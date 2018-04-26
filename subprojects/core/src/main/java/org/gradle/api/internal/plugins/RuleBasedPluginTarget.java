@@ -17,6 +17,7 @@
 package org.gradle.api.internal.plugins;
 
 import org.gradle.api.Plugin;
+import org.gradle.api.internal.project.ProjectInternal;
 import org.gradle.configuration.ConfigurationTargetIdentifier;
 import org.gradle.model.RuleSource;
 import org.gradle.model.internal.inspect.ExtractedRuleSource;
@@ -51,6 +52,10 @@ public class RuleBasedPluginTarget<T extends ModelRegistryScope & PluginAwareInt
     }
 
     public void applyRules(@Nullable String pluginId, Class<?> clazz) {
+        if (target instanceof ProjectInternal) {
+            ProjectInternal project = (ProjectInternal) this.target;
+            project.prepareForRuleBasedPlugins();
+        }
         ModelRegistry modelRegistry = target.getModelRegistry();
         Iterable<Class<? extends RuleSource>> declaredSources = ruleDetector.getDeclaredSources(clazz);
         for (Class<? extends RuleSource> ruleSource : declaredSources) {

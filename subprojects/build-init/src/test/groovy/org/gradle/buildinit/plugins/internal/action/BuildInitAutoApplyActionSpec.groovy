@@ -47,7 +47,7 @@ class BuildInitAutoApplyActionSpec extends Specification {
         new BuildInitAutoApplyAction().execute(projectInternal)
 
         then:
-        1 * taskContainerInternal.addPlaceholderAction("init", InitBuild.class, _)
+        1 * taskContainerInternal.createLater("init", InitBuild.class, _)
         1 * projectInternal.getParent() >> null
     }
 
@@ -58,7 +58,7 @@ class BuildInitAutoApplyActionSpec extends Specification {
         new BuildInitAutoApplyAction().execute(projectInternal)
 
         then:
-        0 * taskContainerInternal.addPlaceholderAction(*_)
+        0 * taskContainerInternal.createLater(*_)
     }
 
     def isNotRootProject() {
